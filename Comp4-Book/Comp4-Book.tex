@@ -1,0 +1,96 @@
+\documentclass[letterpaper,10pt]{book}
+
+\usepackage[USenglish]{babel} %francais, polish, spanish, ...
+\usepackage[T1]{fontenc}
+\usepackage[ansinew]{inputenc}
+
+\usepackage{lmodern} %Type1-font for non-english texts and characters
+
+\usepackage{amsfonts}
+\usepackage{amsmath}
+\usepackage{amssymb}
+
+\usepackage{graphicx} %%For loading graphic files
+\usepackage[dvipsnames]{xcolor}
+\usepackage{subfig} %%Subfigures inside a figure
+\usepackage{hyperref}
+\usepackage{listings}
+
+\definecolor{backcolour}{rgb}{0.92,0.92,0.90}
+
+\lstdefinestyle{cppcode}{
+	language=c++,
+	basicstyle=\footnotesize\ttfamily,
+	%basicstyle=\ttfamily,
+	commentstyle=\color{Green},
+	tabsize=4,
+	columns=flexible,
+	keepspaces=true,
+	keywordstyle=\color{Blue},
+	stringstyle=\color{Maroon},
+	showstringspaces=false,
+	%backgroundcolor=\color{backcolour},
+	frame=single,
+	numbers=left,
+	breaklines=true
+}
+\lstset{style=cppcode}
+
+\newcommand{\code}[1]{\texttt{#1}}
+
+\title{Computing IV Book}
+\author{James Daly}
+
+\begin{document}
+
+\maketitle
+
+\tableofcontents
+
+\part{Data Structures}
+\chapter{\code{Iterators}}
+\chapter{\code{String}}
+\chapter{\code{vector} (Array List)}
+\chapter{\code{list} (Linked List)}
+\chapter{\code{stack}}
+\chapter{\code{queue}}
+\chapter{\code{deque}}
+\chapter{\code{set} (Tree Set)}
+\chapter{\code{map} (Tree Map)}
+\chapter{\code{unordered\_set} (Hash Set)}
+\chapter{\code{unordered\_map} (Hash Map)}
+\chapter{\code{bitset}}
+
+\part{Utilities}
+\chapter{Unit Testing}
+\chapter{Smart Pointers}
+\chapter{Function Pointers}
+\chapter{Lambda Expressions}
+\chapter{\code{<algorithm>}}
+\chapter{Exceptions}
+\chapter{\code{<chrono>}}
+\chapter{\code{<random>}}
+\chapter{\code{<regex>}}
+\chapter{Time}
+\chapter{Threads}
+
+
+\part{Design Patterns}
+\chapter{Factory Method}
+\chapter{Observer}
+\chapter{Adapter}
+\chapter{Decorator}
+\chapter{Model-View-Controller}
+
+
+\part{Miscellaneous}
+\chapter{Makefiles}
+\chapter{Valgrind}
+\chapter{GDB}
+\chapter{Top-Down Design}
+\chapter{Operator Overloading}
+\chapter{Templates}
+\chapter{Dynamic Programming}
+\chapter{Defensive Programming}
+
+\end{document}
