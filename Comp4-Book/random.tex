@@ -1,0 +1,124 @@
+\chapter{\code{<random>}}\label{ch:random}
+
+Many things in life happen seemingly at random.
+When we roll dice, any of the six faces (for standard cube dice) could come up with equal probability (for ideal "fair" dice).
+For a well-shuffled deck of cards, we could draw any of the cards, but that card is not available for future draws.
+
+Yet, computers are by and large not random.
+If you put in the same input, you always get the same output.
+These systems are \emph{deterministic}.
+While stochastic measures that measure real phenomena to generate random numbers exist,
+computer usually simulate randomness by using a special \emph{seed} value and transform it using some sort of algorithm to generate a series of pseudo-random numbers.
+These numbers are not actually random, but they have a number of statistical properties that are close enough for most purposes.
+
+There are several algorithms for generating pseudo-random numbers, each with their own pros and cons.
+The C++ \code{<random>} library includes three: a linear congruential generator (LCG), a Mersenne twister, and subtract-with-carry (also known as subtract-with-borrow).
+Additionally, there is a \code{random\_device} that uses stochastic processes to generate true random numbers.
+
+\section{Linear Congruential Generator (LCG)}\label{sec:random-lcg}
+
+An LCG is a pseudo-random number generator defined by a recurrence relation 
+$$x_{i+1} = (a\cdot{x_i} + c) \% m$$
+where $x_i$ is the previous random number (with $x_0$ being the seed), $x_{i+1}$ is the next random number, and $a$, $c$, and $m$ are constants which are particular to the chosen generator.
+Not all choices for $a$, $c$, and $m$ give useful generators.
+In particular, $m$ is tied to the period (how long the sequence goes before repeating) and so should be relatively large.
+
+The \code{minstd\_rand} and \code{minstd\_rand0} classes are both LCG implementations.
+Overall, the \code{minstd\_rand} class has better randomness with identical overhead and so should be used in preference to \code{minstd\_rand0}.
+The chosen constants for \code{minstd\_rand} are $a = 48271$ (a prime number), $c = 0$, and $m = 2^{31} - 1$ (a Mersenne prime).
+
+Overall, LCGs are very fast and memory efficient, requiring only a single numeric field for the seed (as the constants are often hardcoded) and a single multiplication, addition, and division operation.
+This makes them good for situations where lots of random numbers must be generated quickly, when multiple independent sequences of random numbers are required, or when memory is tight.
+The randomness ranges from passable (for good choices of constants) to awful (for bad choices) and so they are not suitable for cases where high-quality randomness is required (such as for cryptography).
+Finally, the period length is relatively short (being at most $m$) and so is not suitable for long sequences.
+
+\section{Mersenne Twister}\label{sec:random-mt}
+
+A Mersenne twister is a pseudo-random number generators that maintains an array of $n$ $w$-bit numbers and uses a matrix recurrence relation to "twist" the numbers.
+Note that the matrix is chosen such that the result can be easily computed with a series of bit shifts and bit masks rather than doing a full matrix multiplication.
+
+The \code{mt19934} and \code{mt19934\_64} classes for generating 32-bit (\code{uint32}) and 64-bit (\code{uint64}) numbers, respectfully.
+
+Mersenne twisters have incredibly long periods ($2^{19934} - 1$ for the most common version), making them especially good when a long sequence of numbers is required.
+Unfortunately, they have a relatively long warm-up period where similar seed numbers will give correlated sequences before they diverge.
+This makes them unsuitable for repeated experiments such as Monte Carlo simulations.
+They also require a large amount of memory ($\sim\kb{2.5}$) making them unsuitable for multiple parallel streams of random numbers, and are relatively slow making them unsuitable for situations where numbers must be generated quickly.
+
+\section{\code{random\_device}}\label{sec:random-device}
+
+The LCG and Mersenne twister are both pseudo-random number generators;
+they use a formula to generate new numbers from previous numbers rather than using a random process.
+In contrast, the \code{random\_device} class uses a stochastic process (like measuring the least-significant bit of the system clock on a key press or measuring stellar radiation with specialized hardware) to generate random numbers in a manner not unlike flipping coins.
+Note that the process used is system dependent and may not be available on all systems.
+
+There are pros and cons to this.
+Since PRNGs are reproducible, they are useful for simulations or video games where the results need to be repeatable (such as for saving replays or synchronizing between players).
+Certain encryption techniques also essentially boil down to synchronizing PRNGs between the sender and receiver and using the generated numbers to modify the cypher.
+On the flip side, many other security situations \emph{don't} want this property because an adversary may be able to pick a seed that reduces the amount of protection afforded.
+Note that there are separate cryptographically secure pseudo-random number generators that should be used for security rather than either the LCG or Mersenne twister.
+
+Hardware RNGs require making some sort of stochastic measurement, a process which is comparatively slow.
+Generally, the operating system will measure entropy over time from some noise source and store the results in a file (\code{/dev/random} on Linux).
+When randomness is required, bits are consumed from this file which will be slowly refilled over time.
+This means that if a large number of random numbers are requested in a short period of time the request may block until further measurements can be taken.
+
+\section{Seeding the Generator}\label{sec:random-seed}
+
+PRNGs like the LCG and Mersenne twister are initialized with a \emph{seed} value.
+Two copies of the same PRNG seeded with the same value will generate the same sequence.
+This is useful for being able to rerun a simulation (allowing the exact same experiment to be rerun) or for sharing procedurally-generated content across multiple players (since each player can generate the same content from the same seed).
+
+In most situations, you want this seed to be picked essentially at random.
+One common strategy is to use the system clock since the least significant bits of a single timestamp are essentially random.
+Care must be taken to only do this once though; subsequent calls will yield numbers that are highly correlated with the first (and may be identical if your system clock resolution is poor enough).
+
+\begin{lstlisting}
+unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
+std::minstd_rand gen(seed);
+\end{lstlisting}
+
+Alternately, you can use a \code{random\_device} to generate a single random number which is used to seed your PRNG.
+While \code{random\_device} is slow and can block if excessive numbers are requested, generating a single number should be fine.
+
+\begin{lstlisting}
+std::random_device rd;
+std::mt19937 gen(rd());
+\end{lstlisting}
+
+\section{Distributions}\label{sec:random-dist}
+
+The \code{()} operator for each of the random number generator classes creates a single integer between the \code{min()} and \code{max()} defined for that specific generator.
+Generally speaking, this will not be the desired range.
+The \code{<random>} library defines several distribution classes which can be used to generate numbers in different ranges and with particular distributions.
+The simplest of these are \code{uniform\_int\_distribution} and \code{uniform\_read\_distribution} which generate numbers uniformly at random in the specified range.
+Both are templated so that they can generate different kinds of numbers and take two constructor parameters $a$ and $b$ for the lower and upper bounds of their ranges.
+Note that the \code{uniform\_int\_distribution} produces the closed range $[a,b]$ and \code{uniform\_real\_distribution} produces the semi-open range $[a,b)$.
+
+Other distribution objects will produce different distributions.
+For example, the \code{normal\_distribution} will produce a normal distribution with a mean $\mu$ and a standard deviation of $\sigma$.
+
+\begin{lstlisting}
+unsigned int seed = std::chrono::system_clock::now().time_since_epoch().count();
+std::minstd_rand gen(seed);
+std::uniform_int_distribution<int> d6(1, 6); // Standard die
+int roll = d6(gen) + d6(gen); // Sum of two dice
+\end{lstlisting}
+
+\section{Dice Example}\label{sec:random-dice}
+
+Below we present a \code{Dice} class that can be used for simulating dice for a bunch of games.
+There are two constructors.
+The default constructor initializes the random-number generator using the system clock so that each instantiation will generate a different sequence of numbers.
+The second constructor takes a seed that is used to initialize the random-number generator.
+This allows the same sequence to be replayed.
+
+This class uses the \code{minstd\_rand} generator, but the \code{mt19934} generator could have been used instead.
+The generator is a member variable so that it generates a single sequence of numbers rather than restarting the sequence after each roll.
+
+The \code{roll()} method takes parameters for the number and size of the dice, but have default values for the most common option of a single six-sided die.
+It creates a \code{uniform\_int\_distribution} which it uses to generate numbers in the desired range before discarding it after the sum has been tallied.
+
+\lstinputlisting{code/dice.hpp}
+\lstinputlisting{code/dice.cpp}
+
+

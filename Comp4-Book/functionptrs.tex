@@ -1,0 +1,170 @@
+\chapter{Function Pointers}\label{ch:FuncPtrs}
+
+\section{Motivation}\label{sec:fp-motivation}
+
+There are times where we want to have variations on a piece of code where we inject a single behavioral change.
+For example, consider the following code that insertion sorts a vector of strings.
+
+\begin{lstlisting}
+void insertionSort(std::vector<std::string>& v) {
+	for (size_t i = 1; i < v.size(); i++) {
+		std::string s = v[i];
+		size_t j;
+		for (j = i; j > 0 && v[j - 1] < s; j--) {
+			v[j] = v[j - 1];
+		}
+		v[j - 1] = s;
+	}
+}
+\end{lstlisting}
+
+What if we wanted to compare the strings in a case-insensitive manner?
+We would write a very similar function.
+
+\begin{lstlisting}
+bool ltIgnoreCase(const std::string& s1, const std::string& s2) {
+	for (size_t i = 0; i < s1.size() && i < s2.size(); i++) {
+		if (std::tolower(s1[i]) != std::tolower(s2[i])) {
+			return std::tolower(s1[i]) < std::tolower(s2[i]);
+		}
+	}
+	return s1.size() < s2.size();
+}
+void insertionSortIgnoreCase(std::vector<std::string>& v) {
+	for (size_t i = 1; i < v.size(); i++) {
+		std::string s = v[i];
+		size_t j;
+		for (j = i; j > 0 && ltIgnoreCase(v[j - 1], s); j--) {
+			v[j] = v[j - 1];
+		}
+		v[j - 1] = s;
+	}
+}
+\end{lstlisting}
+
+In this example, the \code{insertionSortIgnoreCase} function is the same as the \code{insertionSort} function except that it uses the \code{ltIgnoreCase} function in place of the \code{<} operator.
+We can imagine a number of variants to this that use a variety of alternate comparisons here (e.g. using a greater than comparison to reverse sort),
+especially if we templated the function so that it could work for any kind of \code{vector}.
+
+\section{Function Pointers}
+
+The code for a function exists in memory, which means that it has an address.
+A pointer stores an address, which means that a pointer variable can store the address of a function.
+For a comparison function like the \code{ltIgnoreCase} function above, we could write something like:
+\begin{lstlisting}
+bool (*comp)(const std::string&, const std::string&) = &ltIgnoreCase;
+\end{lstlisting}
+We read this as \code{comp} is a pointer to a function that takes two \code{string}s and returns a \code{bool}, and is bound to \code{ltIgnoreCase}.
+Note that there are no parenthesis on \code{ltIgnoreCase};
+we are getting the address of the function itself, not for whatever invoking the function would return.
+Also, the \code{\&} is optional, so this would also have been acceptable:
+\begin{lstlisting}
+bool (*comp)(const std::string&, const std::string&) = &ltIgnoreCase;
+\end{lstlisting}
+
+At this point, we can treat \code{comp} just like a function and invoke it as though it were the function it points to:
+\begin{lstlisting}
+bool result = comp("hello", "world"); //  evaluates to true
+\end{lstlisting}
+
+Putting it all together (with some templates to make it more useful), we get the following function:
+
+\begin{lstlisting}
+template <typename T>
+void insertionSort(std::vector<T>& v, bool (*comp)(const T&, const T&)) {
+	for (size_t i = 1; i < v.size(); i++) {
+		T s = v[i];
+		size_t j;
+		for (j = i; j > 0 && comp(v[j - 1], s); j--) {
+			v[j] = v[j - 1];
+		}
+		v[j - 1] = s;
+	}
+}
+\end{lstlisting}
+
+
+\section{\code{Function}}
+
+The \code{<functional>} library defines a lot of tools for working with functions.
+One of these tools is a class \code{function} that wraps a function pointer or function-like object (one that defines an \code{operator()}).
+This allows us to create variables that can represent not just functions, but also to things that act like functions.
+Additionally, the notation is a little easier to understand; the previous notation may not immediately be obvious (especially to newer users) that it represents a function.
+
+\begin{lstlisting}
+std::function<bool(const std::string&, const std::string&)> comp = &ltIgnoreCase
+\end{lstlisting}
+
+The \code{<functional>} library also defines a number of objects that represent function calls, such as \code{plus} (representing the \code{+} operator) and \code{equal\_to} (representing the \code{==}) operator).
+A list of these function objects can be seen in Table \ref{tbl:FunctionObjects}.
+
+\begin{table}
+	\centering
+	\begin{tabular}{|l|l|l|}
+		\hline
+		Arithmetic & Relational & Logical \\ \hline
+		\hline
+		\code{plus<T>} & \code{equal\_to<T>} & \code{logical\_and<T>} \\ \hline
+		\code{minus<T>} & \code{not\_equal\_to<T>} & \code{logical\_or<T>} \\ \hline
+		\code{multiplies<T>} & \code{greater<T>} & \code{logical\_not<T>} \\ \hline
+		\code{divides<T>} & \code{greater\_equal<T>} & \\ \hline
+		\code{modulus<T>} & \code{less<T>} & \\ \hline
+		\code{negate<T>} & \code{less\_equal<T>} & \\ \hline
+	\end{tabular}
+	\caption{Function objects representing operators}\label{tbl:FunctionObjects}
+\end{table}
+
+Putting this all together, we create the final version of our \code{insertionSort} function that uses the \code{less} function object to sort items according to their natural ordering if no comparison function is provided.
+
+\begin{lstlisting}
+template <typename T>
+void insertionSort(
+		std::vector<T>& v, 
+		std::function<bool(const T&, const T&)> comp = std::less<T>()) {
+	for (size_t i = 1; i < v.size(); i++) {
+		T s = v[i];
+		size_t j;
+		for (j = i; j > 0 && comp(v[j - 1], s); j--) {
+			v[j] = v[j - 1];
+		}
+		v[j - 1] = s;
+	}
+}
+\end{lstlisting}
+
+
+\section{Lambda Expression}
+
+The version of our \code{insertionSort} function makes sorting in non-standard orders significantly more convenient.
+As long as we have an appropriate comparison function, we can order the items according to that function.
+This does mean that for each different ordering we might want to use will require a separate one of these helper functions.
+Many of these functions will be used in only one place and our namespace may become littered with a bunch of these little functions that are used in only one place.
+
+Since C++11, we can alleviate this by using \emph{lambda expressions}.
+Lambda expressions are statements that create \emph{closures}, which bind some local variables into an anonymous function.
+Generally, a lambda expression in C++ will take the form of:
+\begin{lstlisting}
+[capture] (params) -> type { body }
+\end{lstlisting}
+
+Here, \code{params} is the normal parameter list of the function, \code{type} is the return type of the function, and \code{body} is the usual function body.
+Note that the return type comes \emph{after} the parameter list rather than before like with regular functions, and can usually be intuited and is optional in most cases.
+Likewise, the \code{auto} keyword is often used for the parameter variable types when their types can be intuited from the context.
+
+The capture list is new.
+This is a comma separated list or any local variables that are needed in the closure.
+The closure has access to any variables that are captured by the lambda expression.
+These variables can either by captured by value using \code{=}, in which case their value is copied into the closure,
+or captured by reference using \code{\&}, in which case references to the variable are given to the closure.
+Similar to regular functions, any changes made to a variable captured by value will not be reflected in the surrounding context, by changes to ones captured by reference will be.
+If you need to capture multiple variables, either you can list each one or you can place either just an \code{=} or an \code{\&} to capture all variables.
+
+The capture list is required, even if no variables are captured.
+This will mean that the closure will not have access to any variables from the surrounding environment.
+For example, here is a call to our \code{insertionSort} function with a lambda expression to sort in reverse order.
+\begin{lstlisting}
+insertionSort(words, [](auto a, auto b) { return a > b; });
+\end{lstlisting}
+In this case, we only need to compare the two parameters \code{a} and \code{b}, so we don't need any variables from the local scope.
+Likewise, the types of the variables can be intuited from context and so the \code{auto} keyword can be used.
+Note that in this case, we could have used the \code{std::greater} function object to achieve the same effect.

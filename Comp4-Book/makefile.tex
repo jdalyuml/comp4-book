@@ -1,0 +1,231 @@
+\chapter{Makefiles}\label{ch:Makefile}
+
+\section{Motivation}\label{sec:makefile-motivation}
+
+Consider compiling a small project with a \code{Complex} number class in \file{Complex.hpp} and \file{Complex.cpp} files and a \code{main} function in a \file{main.cpp} file.
+You might compile it like this:
+
+\begin{lstlisting}[language=bash]
+g++ -Wall -Werror -pedantic -g -c Complex.cpp
+g++ -Wall -Werror -pedantic -g -c main.cpp
+g++ -Wall -Werror -pedantic -g -o Program main.o Complex.o
+\end{lstlisting}
+
+Each time you edit any of the files you need to rerun some or all of the above commands.
+Remembering to run the correct ones in the correct order is important; if you don't your compiled \file{Program} won't reflect the changes you made.
+With all of the options, each of the commands are kind of lengthy and annoying to type and it is easy to make an error; a problem that will only get worse if you add other options or need to link to a library.
+Additionally, as you add more files, you need to run more commands.
+You might be tempted to run something like
+\begin{lstlisting}[language=bash]
+g++ -Wall -Werror -pedantic -g -o Program *.cpp
+\end{lstlisting}
+but this doesn't work if you have multiple main files or otherwise want to exclude certain files.
+
+Clearly, this isn't sustainable for larger projects and so we need some way to automate the process of running these commands.
+We will create special \file{Makefile}s that can be interpreted by the program \file{make} to execute the commands to compile our program.
+
+\section{Rules}\label{sec:makefile-rules}
+
+We'll create a simple \file{Makefile} that will compile the same program as in Section \ref{sec:makefile-motivation}.
+
+\begin{lstlisting}[language=make]
+Program: main.o Complex.o
+	g++ -Wall -Werror -pedantic -g -o Program main.o Complex.o
+
+main.o: main.cpp Complex.hpp
+	g++ -Wall -Werror -pedantic -g -c main.cpp
+
+Complex.o: Complex.cpp Complex.hpp
+	g++ -Wall -Werror -pedantic -g -c Complex.cpp
+\end{lstlisting}
+
+This \file{Makefile} contains three \emph{rules}.
+We see that each rule contains three parts: a target, some prerequisites, and a recipe.
+The \emph{target} appears on the left side of the colon and gives the name of the program that successfully running this rule will create.
+The \emph{prerequisites} or \emph{components} appear on the right side of the color and gives the names of other files that must already exist for the target to be built.
+In the case of \file{Program}, these are other compiled files which \file{make} will build using the other rules in the \file{Makefile}.
+Once all of the components are built, \file{make} will follow the \emph{recipe}, which is a series of \emph{commands} listed under the rule.
+The recipe must be indented with a hard tab; spaces are not allowed.
+Each command in the recipe is executed sequentially and stops if any command has an error.
+
+When you run \code{make [target]}, \file{make} will use the corresponding rule to build the file, defaulting to using the first rule if no target is specified.
+This is why \file{Program} is listed first.
+Running \code{make} will cause the following commands to be run:
+\begin{lstlisting}[language=bash]
+g++ -Wall -Werror -pedantic -g -c main.cpp
+g++ -Wall -Werror -pedantic -g -c Complex.cpp
+g++ -Wall -Werror -pedantic -g -o Program main.o Complex.o
+\end{lstlisting}
+
+\file{make} will attempt to build \file{Program}, but since \file{Program} depends on both \file{main.o} and \file{Complex.o}, those must be built first.
+Those files both depend on the code files that we wrote and so it then executes their corresponding commands to compile them.
+Afterward, it then links them together into a single \file{Program}.
+
+Running \code{make} again has different results:
+\begin{lstlisting}[language=bash]
+make: Nothing to be done for 'all'.
+\end{lstlisting}
+
+Make is smart enough to realize that it doesn't need to recompile files if none of its prerequisites have changed, so it doesn't do anything.
+It does this by comparing the timestamps of the file to those of its prerequisites and if it is newer than all of the prerequisites it determines the file is up to date and doesn't have to be rebuilt.
+This can occasionally cause problems, like if the timestamps are messed up because some of the files were updated from a remote device and the timestamps are out of sync.
+You can add the \code{-B} flag to force \file{make} to rebuild.
+
+Changing only some of your files, such as the \file{Complex.cpp} file, will cause only some of the files to be rebuilt.
+In this case, running \code{make} again would produce these results:
+\begin{lstlisting}[language=bash]
+g++ -Wall -Werror -pedantic -g -c Complex.cpp
+g++ -Wall -Werror -pedantic -g -o Program main.o Complex.o
+\end{lstlisting}
+
+
+\section{Variables}\label{sec:makefile-variables}
+
+You may have noticed that a lot of stuff is repeated throughout our different rules.
+We can reduce a lot of repetition by using variables.
+For example, all of the flags to \file{g++} are repeated in every command.
+If we want to change some of the flags, perhaps to use a different version of C++ than the default, then we would have to add this to every command.
+Instead, it is common to have a variable called \code{FLAGS} that contains these.
+Then we only have to change it in one place.
+Note that there is nothing special about this name and you will sometimes see similar names like \code{CFLAGS} instead.
+Also, you will use \code{\$} to evaluate an expression, but not when you want to set a variable.
+
+This updates our \file{Makefile} to
+\begin{lstlisting}[language=make]
+FLAGS = -Wall -Werror -pedantic -g
+
+Program: main.o Complex.o
+	g++ $(FLAGS) -o Program main.o Complex.o
+
+main.o: main.cpp Complex.hpp
+	g++ $(FLAGS) -c main.cpp
+
+Complex.o: Complex.cpp Complex.hpp
+	g++ $(FLAGS) -c Complex.cpp
+\end{lstlisting}
+
+We can do a few other improvements to improve maintainability.
+We'll add a \code{CC} variable in case we want to switch out the compiler for another one and a \code{LIBS} variable for any libraries we might use in the future (although we currently aren't using any).
+Finally, we'll also add a \code{DEPS} variable that holds common components where any change is going to require recompiling most of our code, such as for many of our header files.
+
+After this, our updated \file{Makefile} is
+\begin{lstlisting}[language=make]
+CC = g++
+FLAGS = -Wall -Werror -pedantic -g
+LIBS = 
+DEPS = Complex.hpp
+
+Program: main.o Complex.o
+	$(CC) $(FLAGS) -o Program main.o Complex.o
+
+main.o: main.cpp $(DEPS)
+	$(CC) $(FLAGS) -c main.cpp
+
+Complex.o: Complex.cpp $(DEPS)
+	$(CC) $(FLAGS) -c Complex.cpp
+\end{lstlisting}
+
+
+\section{Automatic Variables}\label{sec:makefile-special}
+
+In Section \ref{sec:makefile-variables}, we managed to remove repetition between rules by using variables, but each rule still has some repetition.
+In the first rule, the component files are repeated as part of the command.
+We can replace them with the automatic variable \code{\$\^} which represents all of the components.
+
+For the other two rules, only one of the components is duplicated.
+We don't want to try to compile the header files, only the single source file.
+We can instead use the automatic variable \code{\$<} to insert only the first component.
+
+Finally, the program name also appears in the command for the first rule.
+We can use the the automatic variable \code{\$@} to insert the target name.
+
+All combined, we now have an updated \file{Makefile}:
+\begin{lstlisting}[language=make]
+CC = g++
+FLAGS = -Wall -Werror -pedantic -g
+LIBS = 
+DEPS = Complex.hpp
+
+Program: main.o Complex.o
+	$(CC) $(FLAGS) -o $@ $^
+
+main.o: main.cpp $(DEPS)
+	$(CC) $(FLAGS) -c $<
+
+Complex.o: Complex.cpp $(DEPS)
+	$(CC) $(FLAGS) -c $<
+\end{lstlisting}
+
+At this point, we notice that the commands for \file{main.o} and \file{Complex.o} are identical.
+We can use the wildcard symbol \code{\%} to represent the name of the file.
+If we make a rule with target \code{\%.o} then that rule will be used when building \emph{any} \file{.o} file.
+We can then use it in the prequisites to match the corresponding \file{.cpp} file.
+This allows us to make a single rule that replaces the individual rules for each \file{.o} file.
+This makes adding new files significantly easier.
+
+Our final \file{Makefile} is now
+\begin{lstlisting}[language=make]
+CC = g++
+FLAGS = -Wall -Werror -pedantic -g
+LIBS = 
+DEPS = Complex.hpp
+
+Program: main.o Complex.o
+	$(CC) $(FLAGS) -o $@ $^
+
+%.o: %.cpp $(DEPS)
+	$(CC) $(FLAGS) -c $<
+\end{lstlisting}
+
+
+\section{Standard Targets}\label{sec:makefile-phony}
+
+There are several targets that appear in the \file{Makefile}s of most projects.
+These names do not have an particular meaning to \file{make}, but are a convention expected by others.
+
+By convention, \file{all} is used to build everything.
+This is normally the first rule in the \file{Makefile} so that it will be the default rule.
+\begin{lstlisting}[language=make]
+all: Program
+\end{lstlisting}
+If we added other helper programs, we can add them as prerequisites to \file{all} to have all of them be built.
+
+\file{install} will compile the program and copy all of the necessary files to where they should reside for use.
+This means that any libraries created would be usable by other programs.
+This will likely require creating new folders.
+A separate \file{uninstall} target will remove the installed files.
+
+\file{clean} removes generated files created by this \file{Makefile}, but not configuration information.
+\file{distclean} is stronger and also removes configuration information and \file{mostlyclean} is weaker and refrains from removing files that people don't want to recompile.
+
+None of these standard targets correspond to actual files.
+This can cause problems if files by that name were ever created;
+for example if there is a file named \file{clean} then \code{make clean} would not actually remove anything because \file{make} would think that it is up to date.
+To combat this, we create a special target called \file{.PHONY}.
+Any prerequisite of \file{.PHONY} is always rebuilt regardless of whether a file by that name exists.
+
+We end with our final \file{Makefile}
+\begin{lstlisting}[language=make]
+CC = g++
+FLAGS = -Wall -Werror -pedantic -g
+LIBS = 
+DEPS = Complex.hpp
+
+.PHONY: all clean mostlyclean
+
+all: Program
+
+Program: main.o Complex.o
+	$(CC) $(FLAGS) -o $@ $^
+
+%.o: %.cpp $(DEPS)
+	$(CC) $(FLAGS) -c $<
+	
+clean: mostlyclean
+	rm -f Program
+
+mostlyclean:
+	rm -f *.o
+\end{lstlisting}
+
+Here, \code{make mostlyclean} leaves our \file{Program} intact, but removes the \file{.o} files that aren't needed after \file{Program} is built and \code{make clean} removes everything.

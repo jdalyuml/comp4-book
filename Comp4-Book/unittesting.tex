@@ -1,0 +1,141 @@
+\chapter{Unit Testing}\label{ch:UnitTesting}
+
+\section{Motivation}\label{sec:testing-motivation}
+
+When you write a program, it can be difficult to tell if it does what you want it to.
+There can be any number of errors in the program, some of which may be hard to identify.
+Furthermore, once you fix one problem, you have to ensure that you didn't inadvertently introduce a new bug in the process.
+Running your program and testing everything by hand is a very time-consuming process.
+It is also easy to miss something, especially when you are rechecking a section for the umpteenth time.
+
+Automated unit testing has us writing test programs that will run portions of our main program to ensure that they behave as expected.
+These test programs are made up of a suite of small ``unit tests'' that each run a small portion of the overall code and verifies that it performs as expected.
+If the developer accidentally makes a change to the behavior of the system, these tests will identify the change in behavior.
+By running these tests frequently, these mistakes can be caught quickly and fixed before too many other changes have also been made.
+This makes debugging much easier.
+
+There are a number of different unit testing frameworks, both for C++ and for other languages.
+The Boost Unit Test Framework is one such framework.
+
+
+\section{Simple Test}\label{sec:testing-simple}
+
+Below is a simple test for the \code{std::string} class.
+
+\begin{lstlisting}
+#define BOOST_TEST_DYN_LINK
+#define BOOST_TEST_MODULE StringTest
+#include <string>
+#include <boost/test/unit_test.hpp>
+
+BOOST_AUTO_TEST_CASE(TestSize) {
+	std::string str = "hello, world!";
+	BOOST_REQUIRE(str.size() == 13);
+}
+\end{lstlisting}
+
+Here, the \code{<string>} library is the component that we are testing and \code{<boost/test/unit\_test.cpp} is the header for the test library.
+The \code{BOOST\_TEST\_DYN\_LINK} macro is an option that tells the library that it should create a \code{main} function that will run your tests.
+Without it, you would have to write your own \code{main} function and call the tests yourself.
+The \code{BOOST\_TEST\_MODULE} defines a name for this suite of tests (\code{StringTest} in this case).
+Both of these macros must be defined \emph{before} including the test library.
+
+\code{BOOST\_AUTO\_TEST\_CASE} is a macro that will create a test function (here named \code{TestSize}), including a lot of code to add it to the test suite that you don't have to worry about.
+You can have as many \code{BOOST\_AUTO\_TEST\_CASE}s as you want;
+usually you will have a lot of them that each test specific things.
+Note that since they create functions, you need to obey all of the usual C++ naming rules including about having multiple functions with identical names.
+
+Inside the test, we use the \code{BOOST\_REQUIRE} macro to create an assertion that the string has the correct size.
+If the condition inside the macro is \code{false}, then the test ends in failure.
+If it is \code{true}, then the test continues.
+If the test ends normally, then it passes.
+
+There is also a \code{BOOST\_CHECK} macro.
+Like \code{BOOST\_REQUIRE}, \code{BOOST\_CHECK} will cause the test to fail if the condition is \code{false}.
+Unlike \code{BOOST\_REQUIRE}, the test continues even on a failure.
+This means that a single test could have multiple failures.
+You use \code{BOOST\_CHECK} when testing multiple independent assertions such as functions without side-effects
+and \code{BOOST\_REQUIRE} when an earlier failure implies that later assertions will also fail (such as when modifying an object).
+
+
+\section{Comparisons}\label{sec:testing-compare}
+
+The assertion in Chapter \ref{sec:testing-simple} has a limitation;
+if the assertion fails, we don't know \emph{why} it failed (we don't know what the size is).
+Instead, we can use the \code{BOOST\_REQUIRE\_EQUAL}.
+If this fails, it will report what the two values are using the \oplshift operator.
+This gives us more information about what went wrong.
+
+There are a number of different assertion macros that we can use for different types of comparisons.
+Each comparison has both a \code{REQUIRE} and a \code{CHECK} version, depending on whether we want to stop or continue on a failure.
+A list of these macros can be seen in Table \ref{tbl:test-macro}
+
+\begin{table}
+	\begin{tabular}{|l|l|l|}
+	\hline
+	Operator& Require Macro & Check Macro \\ \hline
+	== & \code{BOOST\_REQUIRE\_EQUAL} & \code{BOOST\_CHECK\_EQUAL} \\ \hline
+	!= & \code{BOOST\_REQUIRE\_NE} & \code{BOOST\_CHECK\_NE} \\ \hline
+	< & \code{BOOST\_REQUIRE\_LT} & \code{BOOST\_CHECK\_LT} \\ \hline
+	<= & \code{BOOST\_REQUIRE\_LE} & \code{BOOST\_CHECK\_LE} \\ \hline
+	> & \code{BOOST\_REQUIRE\_GT} & \code{BOOST\_CHECK\_GT} \\ \hline
+	>= & \code{BOOST\_REQUIRE\_GE} & \code{BOOST\_CHECK\_GE} \\ \hline
+	\end{tabular}
+	\caption{Comparison Macros}\label{tbl:test-macro}
+\end{table}
+
+Since floating-point numbers (like \code{float} and \code{double}) can have a small amount of error, there also exists a \code{BOOST\_REQUIRE\_CLOSE} macro that can determine if two floating-point numbers are within a specified threshold of each other.
+
+Here is a revised test case for the example in Section \ref{sec:testing-simple}.
+
+
+\begin{lstlisting}
+BOOST_AUTO_TEST_CASE(TestSize) {
+	std::string str = "hello, world!";
+	BOOST_REQUIRE_EQUAL(str.size(), 13);
+}
+\end{lstlisting}
+
+
+\section{Exceptions}\label{sec:testing-except}
+
+It is important to test both the success cases and failure cases.
+For example, we should check that the program behaves properly when given values outside of the allowable range.
+Often times, the correct behavior is to throw an exception.
+We can use the \code{BOOST\_REQUIRE\_THROW} or \code{BOOST\_CHECK\_THROW} macros to verify that a piece of code throws a particular kind of exception.
+The second argument is the type of exception that is expected, so if it throws the wrong kind of exception it will fail the test.
+Note that if a subclass of the exception is thrown it will still pass the test.
+Conversely, if you want to check that it \emph{doesn't} throw an exception, you can use \code{BOOST\_REQUIRE\_NO\_THROW} or \code{BOOST\_CHECK\_NO\_THROW}.
+
+\begin{lstlisting}
+BOOST_AUTO_TEST_CASE(TestAt) {
+	std::vector<int> v = {1};
+	BOOST_REQUIRE(v.empty());
+	BOOST_REQUIRE_NO_THROW(v.at(0));
+	BOOST_REQUIRE_THROW(v.at(1), std::out_of_range);
+}
+\end{lstlisting}
+
+
+\section{Test-Driven Development}\label{sec:testing-tdd}
+
+When we write a new test and it passes it raises a question; did it pass because the code it is testing is good, or because the test is not good enough to detect problems?
+For example, we could write a trivial test that does nothing and always passes.
+This test would be useless for detecting problems.
+
+The key to answering the question is to write the test first, \emph{before} the code which it tests.
+Since the feature being tested doesn't exist yet, the test will fail.
+Once we implement the feature, the test should pass.
+In this way, the test becomes a representation of what it means to have implemented the feature.
+
+When we write a new feature, we follow these steps.
+
+\begin{enumerate}
+	\item Write some tests that define the expected behavior for the the new feature.  These tests may not compile if they call new functions.
+	\item Write a stub for these new functions.
+	\item Run the tests.  The new tests should fail since the feature hasn't been implemented yet.
+	\item Write the new feature.
+	\item Rerun the tests.  If the feature was implemented properly, all of the tests will pass.  Fix any problems until this is the case.
+	\item Refactor the code to make it more readable.  Rerun the tests to make sure you didn't accidentally break anything.
+\end{enumerate}
+

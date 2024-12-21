@@ -15,6 +15,11 @@
 \usepackage{subfig} %%Subfigures inside a figure
 \usepackage{hyperref}
 \usepackage{listings}
+\usepackage{siunitx}
+\usepackage{xspace}
+
+\newcommand{\kb}[1]{\qty{#1}{\kibi\byte}}
+\newcommand{\mb}[1]{\qty{#1}{\mibi\byte}}
 
 \definecolor{backcolour}{rgb}{0.92,0.92,0.90}
 
@@ -37,6 +42,27 @@
 \lstset{style=cppcode}
 
 \newcommand{\code}[1]{\texttt{#1}}
+\newcommand{\file}[1]{\textcolor{blue}{\texttt{#1}}}
+\newcommand{\mktype}[1]{\code{#1}\xspace}
+\newcommand{\oplshift}{\code{{<}{<}}\xspace}
+\newcommand{\oprshift}{\code{{>}{>}}\xspace}
+\newcommand{\new}{\code{new}}
+\newcommand{\delete}{\code{delete}}
+\newcommand{\deleted}{\code{delete}d}
+\newcommand{\inttype}{\mktype{int}}
+\newcommand{\booltype}{\mktype{bool}}
+\newcommand{\true}{\code{true}\xspace}
+\newcommand{\false}{\code{false}\xspace}
+\newcommand{\stringtype}{\mktype{string}}
+\newcommand{\vectortype}{\mktype{vector}}
+\newcommand{\listtype}{\mktype{list}}
+\newcommand{\nullptr}{\code{nullptr}\xspace}
+\newcommand{\sharedptr}{\mktype{shared\_ptr}}
+\newcommand{\sharedptrs}{\code{shared\_ptr}s\xspace}
+\newcommand{\weakptr}{\mktype{weak\_ptr}}
+\newcommand{\weakptrs}{\code{weak\_ptr}s\xspace}
+\newcommand{\uniqueptr}{\mktype{unique\_ptr}}
+\newcommand{\uniqueptrs}{\mktype{unique\_ptr}s\xspace}
 
 \title{Computing IV Book}
 \author{James Daly}
@@ -46,6 +72,13 @@
 \maketitle
 
 \tableofcontents
+
+\part{C++ Language}
+\input{namespaces}
+\chapter{Inheritance}
+\chapter{Friends}
+\chapter{Operator Overloading}
+\chapter{Templates}
 
 \part{Data Structures}
 \chapter{\code{Iterators}}
@@ -62,17 +95,17 @@
 \chapter{\code{bitset}}
 
 \part{Utilities}
-\chapter{Unit Testing}
-\chapter{Smart Pointers}
-\chapter{Function Pointers}
-\chapter{Lambda Expressions}
-\chapter{\code{<algorithm>}}
-\chapter{Exceptions}
-\chapter{\code{<chrono>}}
-\chapter{\code{<random>}}
-\chapter{\code{<regex>}}
-\chapter{Time}
-\chapter{Threads}
+\input{unittesting}
+\input{smartpointers}
+\input{functionptrs}
+%\input{lambdas}
+\input{algorithm}
+\input{exceptions}
+\input{chrono}
+\input{random}
+\chapter{\code{<regex>}}\label{ch:regex}
+\chapter{Time}\label{ch:time}
+\chapter{Threads}\label{ch:threads}
 
 
 \part{Design Patterns}
@@ -81,15 +114,15 @@
 \chapter{Adapter}
 \chapter{Decorator}
 \chapter{Model-View-Controller}
+\chapter{Singleton}
 
 
 \part{Miscellaneous}
-\chapter{Makefiles}
+\input{makefile}
 \chapter{Valgrind}
 \chapter{GDB}
+\input{bighoh}
 \chapter{Top-Down Design}
-\chapter{Operator Overloading}
-\chapter{Templates}
 \chapter{Dynamic Programming}
 \chapter{Defensive Programming}
 

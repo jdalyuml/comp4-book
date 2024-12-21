@@ -1,0 +1,55 @@
+% !TeX root=Comp4-Book
+\chapter{\code{<algorithm>}}\label{ch:algorithm}
+\section{Motivation}\label{sec:algo-motivation}
+
+
+\section{\code{accumulate}}\label{sec:algo-accumulate}
+
+The \code{std::accumulate} represents a \href{https://en.wikipedia.org/wiki/Fold_(higher-order_function)}{fold}
+where each element in the sequence is repeatedly "`folded"' into a result using a provided combining function and initial result.
+Unlike the other functions included in this chapter, \code{accumulate} is located in the \code{<numeric>} library.
+The default version uses addition as the combining function to calculate the sum of the elements.
+For example, the following code segment computes the sum of a \vectortype.
+
+\begin{lstlisting}
+vector<int> v = {1, 2, 3, 4, 5};
+int sum = accumulate(v.begin(), v.end(), 0); // 15
+\end{lstlisting}
+
+There is also an overload that takes the combining function as an argument.
+The following code segment uses the \code{multiplies} class from the \code{<function>} library to compute the product of the elements.
+Note that 1 is used for the initial result since that is the multiplicative identity.
+
+\begin{lstlisting}
+vector<int> v = {1, 2, 3, 4, 5};
+int product = accumulate(v.begin(), v.end(), 1, multiplies<int>()); // 120
+\end{lstlisting}
+
+Since the \code{accumulate} function is generic, you can use it with any type that has a $+$ operator.
+This code segment will concatenate several strings together into a single string.
+
+\begin{lstlisting}
+vector<string> v = {"hello", "world"}
+string concat = accumulate(v.begin(), v.end(), string()); // "helloworld"
+\end{lstlisting}
+
+
+\section{\code{find}}\label{sec:algo-find}
+find, findif, and search
+\section{\code{any\_of}}\label{sec:algo-any}
+anyof, allof, and noneof
+\section{\code{count}}\label{sec:algo-count}
+count and countif
+\section{min and max}\label{sec:algo-minmax}
+\section{equal}\label{sec:algo-equal}
+\section{copy}\label{sec:algo-copy}
+copy, copyif
+\section{transform}\label{sec:algo-transform}
+\section{move}\label{sec:algo-move}
+\section{fill and generate}\label{sec:algo-fill}
+\section{replace}\label{sec:algo-replace}
+\section{sort}\label{sec:algo-sort}
+sort, stablesort, partialsort
+binarysearch, includes, lowerbound, upperbound
+
+

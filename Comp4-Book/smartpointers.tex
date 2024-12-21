@@ -1,0 +1,116 @@
+\chapter{Smart Pointers}\label{ch:SmartPointers}
+
+\section{Problem with Ownership}\label{ch:ProblemControl}
+
+Whenever you allocate memory with \code{new}, it must be deallocated at some later point in time with \code{delete}.
+It is important that this happens exactly once;
+if you forget to \code{delete} it when you are done you end up with a memory leak and if you call \code{delete} on it multiple times you get a double free error.
+Even if you call \code{delete} on the pointer exactly once you can still end up with problems;
+if you copied the pointer then you have a wild pointer.
+Using this pointer will cause undefined behavior.
+What this means is we need some way to tell who is responsible for deleting the pointer and letting others know not to use any copies they may have.
+
+This may seem like it should be a simple process.
+Each pointer has an \emph{owner} who is responsible for deleting the pointer and ownership can be transferred.
+However, it isn't always clear if calling a function transfers ownership or not.
+
+\begin{lstlisting}
+vector<Item*> items;
+\end{lstlisting}
+
+Consider a \vectortype of pointers to \code{Item}s.
+It is possible that the \vectortype claims ownership of any pointers and that whoever manages the \vectortype is responsible for deleting them.
+It is also possible that the \vectortype is a view into a larger structure or a composition of several smaller collections.
+For example, consider a multiplayer game where each player has a \vectortype of their own pieces and a separate combined \vectortype also exists for things like physics or drawing.
+In this case, it may not be clear whether the players or the model are responsible for deleting the units.
+
+
+\section{Reference counting}\label{ch:ReferenceCounting}
+
+It is possible to share ownership of an object.
+This requires several owners to coordinate when they claim and relinquish ownership of an object.
+The last one to relinquish ownership of the object then destroys it.
+This is often done through \emph{reference counting}.
+
+When an object is created through \new, a \emph{reference counter} is also created and initialized to 1.
+Whenever a new pointer to the object is created the counter is incremented.
+Whenever a pointer is cleared, the counter is decremented.
+If the counter ever reaches 0, the object must be also be deleted.
+
+
+\section{\sharedptr}\label{ch:SharedPtr}
+
+The \sharedptr is a smart pointer that uses the reference counting strategy mentioned in Section \ref{ch:ReferenceCounting}.
+When the first \sharedptr is created, it sets a reference count to 1;
+each other \sharedptr created with either the copy constructor or copy assignment operator increments the counter
+and the destructor decrements the counter, destroying the owned object if the count reaches 0.
+Note that you should not create a second \sharedptr from the original raw pointer.
+Doing so will create a second reference count and will cause problems.
+New smart pointers should only be created from existing smart pointers.
+
+There is a factory function \code{make\_shared} that both constructs an object and creates a \sharedptr to it.
+This factory takes the parameters that will be passed to the new object's constructor, which it will call with \code{new}.
+It then constructs and returns a \sharedptr with that object.
+The factory has some advantages over the constructor.
+First, it slightly simplifies things by combining the memory allocation and \sharedptr creation into a single step.
+Second, the raw pointer never exists outside of the factory and so there is no chance of accidentally creating a second reference count or a well-meaning fool from accidentally deleting the raw pointer.
+Third, the process is completed in a single step, so there is no chance of the object being allocated and then afterwards an exception being thrown before the \sharedptr is created (which would leak the object).
+
+\sharedptr has both a \code{*} and \code{->} operator so the syntax for using it is like a normal raw pointer.
+It also has a \booltype cast operator which is \true if the pointer is non-empty and \false if it is empty like a raw pointer so you can use it as part of conditionals.
+The \code{reset} method clears the pointer (decrementing the reference count) and makes it a \nullptr, whereas the \code{swap} method swaps the pointers owned by two \sharedptr s (preserving their reference counts).
+You can use the \code{get} method if you need the raw pointer (such as when interfacing with a function that takes in raw pointers.
+Note that the \code{==}, \code{!=}, and \oplshift operators work with the \emph{pointer} and not the owned object.
+
+In the following example, we create a \sharedptr to a \stringtype.
+When we copy the pointer, we can make changes to the \stringtype which are reflected with the original pointer since they refer to the same object.
+
+\begin{lstlisting}
+std::shared_ptr<string> p1 = std::make_shared<string>("hello");
+std::shared_ptr<string> p2 = p1;
+*p2 += "world";
+cout << *p1 << endl; // prints "helloworld"
+\end{lstlisting}
+
+
+\section{\weakptr}\label{ch:WeakPtr}
+
+Smart pointers help prevent memory leaks, but certain problems can arise.
+If an object owns a copy of its own smart pointer, either directly or indirectly through something it owns, then that object will never be deleted since its reference count will never hit 0.
+Consider, for example, a doubly linked list where each node holds \sharedptrs to both the next and previous nodes.
+When the container is destroyed, it discards its pointers to the node chain.
+However, if there are two or more nodes in the list, then the next and previous nodes keep each other alive through their own \sharedptrs.
+If the nodes only had \sharedptrs to their next nodes, then the destruction of the container would cause the head node to be destroyed,
+which would then cause each subsequent node to be destroyed in the chain.
+
+We then replace the previous nodes with \weakptrs.
+A \weakptr is a kind of smart pointer that follows, but doesn't own, the pointer it references (creating a \weakptr doesn't affect the reference count).
+This means that if all of the \sharedptrs to an object are cleared, the object is \deleted, even if there are still \weakptrs to the object.
+
+\weakptrs can be copy constructed from either \sharedptrs or other \weakptrs, but cannot be instantiated from a raw pointer (since the reference count would be 0).
+Also unlike \sharedptrs, \weakptrs \emph{don't} have the usual pointer operators \code{*} and \code{->} and cannot directly access the stored pointer.
+Instead, you must first use the \code{lock} method, which creates a \sharedptr that you can use.
+This \sharedptr shares the same reference counter as the \weakptr's progenitor and will keep the object alive until it is discarded.
+Note that if the reference counter reaches 0 \emph{before} you \code{lock} the \weakptr, the object will have already been \deleted and you will receive a \code{null} \sharedptr instead.
+You can use the \code{expired} method to check if the \weakptr is still valid, but in a multi-threaded environment there is the chance that the object could be destroyed between the calls to \code{expired} and \code{lock}.
+
+
+\section{\uniqueptr}\label{ch:UniquePtr}
+
+Sometimes there should be only a single access point to an object.
+A \uniqueptr is a smart pointer for sole ownership over the object.
+Unlike a \sharedptr, a \uniqueptr does not use reference counting.
+Instead, the \uniqueptr promises to be the only owner of the object.
+
+Similar to the \sharedptr, there is a \code{make\_unique} factory that will construct a new object and the owning \uniqueptr simultaneously with the same benefits as mentioned in Chapter \ref{ch:SharedPtr} for \code{make\_shared}.
+Unlike \sharedptr, \uniqueptr does not have a copy constructor or copy assignment operator.
+Since \uniqueptrs are \emph{unique} they cannot be cloned.
+Instead, you can use the move constructor or move assignment operator to \emph{transfer} ownership of the pointer to a different \uniqueptr.
+When you use this, the object owned by the recipient \uniqueptr is destroyed and then it claims ownership of the source object owned by the source \uniqueptr, which is then set to \nullptr.
+You can also move to a \sharedptr using move constructor or move operator overloads.
+Note that this is a one-way street; you cannot move from a \sharedptr back to a \uniqueptr since additional copies of the \sharedptr could have already been made.
+You can also \code{swap} two \uniqueptrs (but not between a \uniqueptr and a \sharedptr).
+
+\uniqueptr has the same access and equality operators as a \sharedptr as well as the \code{reset} method.
+Additionally, it has a \code{release} method that relinquishes control over the object and returns its pointer.
+This is different from \code{get} in that after calling \code{release} the object is no longer managed by the \uniqueptr and must be manually \code{delete}d.
